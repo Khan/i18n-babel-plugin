@@ -1,0 +1,26 @@
+{
+  "name": "i18n-babel-plugin",
+  "version": "0.0.1",
+  "description": "Babel plugin to convert &lt;$_> and &lt;$i18nDoNotTranslate> tags to function calls.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha test/test_spec.js "
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Khan/i18n-babel-plugin"
+  },
+  "author": "Kevin Barabash <kevinb@khanacademy.org>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Khan/i18n-babel-plugin/issues"
+  },
+  "homepage": "https://github.com/Khan/i18n-babel-plugin",
+  "devDependencies": {
+    "babel-core": "^5.4.6",
+    "jstransform": "~6.0.1",
+    "jsx-i18n": "0.0.1",
+    "mocha": "^2.2.5",
+    "react-tools": "0.12.0-rc1"
+  }
+}

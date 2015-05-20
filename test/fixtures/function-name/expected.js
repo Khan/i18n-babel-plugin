@@ -1,0 +1,2 @@
+var obj = { 
+    setInterval: function () {} };
