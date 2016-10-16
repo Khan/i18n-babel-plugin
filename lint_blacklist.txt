@@ -1,0 +1,3 @@
+test/fixtures/
+tools/fixtures/
+node_modules/
