@@ -1,2 +1,2 @@
-var obj = { 
-    setInterval: function () {} };
+var obj = {
+    setInterval: function setInterval() {} };

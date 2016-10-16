@@ -5,31 +5,15 @@ const babel = require("babel-core");
 const fs = require("fs");
 const path = require("path");
 
-const whitelistWithReact = [
-    'es6.arrowFunctions',
-    'es6.blockScoping',
-    'es6.classes',
-    'es6.destructuring',
-    'es6.parameters.rest',
-    'es6.templateLiterals',
-    'es6.spread',
-    'es7.objectRestSpread',
-    'react',
-];
-
 function compile(code) {
     return babel.transform(code, {
-        plugins: ["../index.js"],
         retainLines: true,
-        whitelist: whitelistWithReact,
     }).code;
 }
 
 function compileFile(file) {
     return babel.transformFileSync(file, {
-        plugins: ["../index.js"],
         retainLines: true,
-        whitelist: whitelistWithReact,
     }).code;
 }
 

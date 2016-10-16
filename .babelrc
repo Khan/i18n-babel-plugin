@@ -1,0 +1,4 @@
+{
+    "presets": ["./es2015-loose-not-strict.js", "react"],
+    "plugins": ["./index.js"]
+}

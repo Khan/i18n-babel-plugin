@@ -56,30 +56,26 @@ module.exports = function(babel) {
     };
 
     /**
-     * The purpose fixWhitespace is to remove any extra spaces introduced into
-     * a string by a linefeed and any extra whitespace surrounding it.
+     * Removes any extra spaces introduced into a string by a linefeed and any
+     * extra whitespace surrounding it.
      *
      * See test/fixtures/i18n-line-feed for test cases.
      * Note: turn on "show whitespace" in your editor
      *
-     * @param {Literal} string
-     * @returns {Literal}
+     * @param {string} string
+     * @returns {string}
      */
     const fixWhitespace = function(string) {
-        let value = string.value;
+        return string
+            // remove any whitespace containing a linefeed from the start
+            .replace(/^\s*\n\s*/, "")
 
-        // remove any whitespace containing a linefeed from the start
-        value = value.replace(/^\s*\n\s*/, "");
+            // remove any whitespace containing a linefeed from the end
+            .replace(/\s*\n\s*$/, "")
 
-        // remove any whitespace containing a linefeed from the end
-        value = value.replace(/\s*\n\s*$/, "");
-
-        // replace any whitespace containing a linefeed in the middle of the
-        // string with a single space
-        value = value.replace(/\s*\n\s*/g, " ");
-
-        string.value = value;
-        return string;
+            // replace any whitespace containing a linefeed in the middle of
+            // the string with a single space
+            .replace(/\s*\n\s*/g, " ");
     };
 
     /**
@@ -117,98 +113,123 @@ module.exports = function(babel) {
      * Plugins are implemented using the visitor pattern.  For more details
      * see: http://babeljs.io/docs/advanced/plugins/
      */
-    return new babel.Transformer("i18n-plugin", {
-        /**
-         * Process JSXElement on entering the node.  It replaces the node
-         * with a CallExpression representing the output of the transform
-         * described above.
-         *
-         * Note: Doing the processing when entering the node won't handle
-         * nested i18n tags, e.g. <$_><$_>inner</$_></$_>.
-         * TODO(kevinb) create eslint plugin to lint against this
-         *
-         * @param {JSXElement} node
-         * @param {Node} parent
-         * @param {Scope} scope
-         * @param {File} file
-         * @returns {CallExpression}
-         */
-        JSXElement: function(node, parent, scope, file) {
-            const openName = node.openingElement.name.name;
+    return {
+        visitor: {
+            /**
+             * Process JSXElement on entering the node.  It replaces the node
+             * with a CallExpression representing the output of the transform
+             * described above.
+             *
+             * Note: Doing the processing when entering the node won't handle
+             * nested i18n tags, e.g. <$_><$_>inner</$_></$_>.
+             * TODO(kevinb) create eslint plugin to lint against this
+             *
+             * @param path
+             * @returns {CallExpression}
+             *
+             * For more information about path objects see:
+             * https://github.com/thejameskyle/babel-handbook/blob/master/translations/en/plugin-handbook.md#paths
+             */
+            JSXElement: function(path) {
+                const node = path.node;
+                const openName = node.openingElement.name.name;
 
-            const tagNames = ["$_", "$i18nDoNotTranslate"];
-            for (let i = 0; i < tagNames.length; i++) {
-                const tagName = tagNames[i];
-                if (openName === tagName) {
-                    // Remove empty tags and warn
-                    if (node.children.length === 0) {
-                        const message =  "<" + tagName + "> has no children";
-                        printWarning(file, node, message);
-                    }
+                const tagNames = ["$_", "$i18nDoNotTranslate"];
+                for (let i = 0; i < tagNames.length; i++) {
+                    const tagName = tagNames[i];
+                    if (openName === tagName) {
+                        // Remove empty tags and warn
+                        if (node.children.length === 0) {
+                            const message =  `<${tagName}> has no children`;
+                            printWarning(this.file, node, message);
+                        }
 
-                    // Handle attributes if they exist
-                    let options = t.literal(null);
-                    const attributes = node.openingElement.attributes;
-                    if (attributes.length > 0) {
-                        const properties = attributes.map(function(attr) {
-                            const kind = "init";
-                            const key = attr.name;
-                            const value = attr.value;
-                            return t.property(kind, key, value);
-                        });
-                        options = t.objectExpression(properties);
-                    }
+                        // Handle attributes if they exist
+                        let options = t.nullLiteral();
+                        const attributes = node.openingElement.attributes;
+                        if (attributes.length > 0) {
+                            const properties = attributes.map(function(attr) {
+                                // JSXIdentifier
+                                const key = attr.name;
 
-                    // The node.children array can contain the following nodes:
-                    // - Literal (can only be a string)
-                    // - JSXExpressionContainer
-                    // - JSXElement
-                    //
-                    // Although it's valid jsx syntax for JSXElements to
-                    // appear within the i18n tags, they shouldn't because it
-                    // doesn't make sense to translate an element.
-                    // TODO(kevinb) create eslint plugin to lint against this
-                    //
-                    // This code handles multiple children within the an i18n
-                    // tag by appending them to the args array, but only the
-                    // first child is actually used by either $_() or
-                    // $i18nDoNotTranslate() because these methods only take
-                    // two args: options and str.
-                    const args = [options];
-                    let strings = [];
-                    let string;
-                    node.children.forEach(function(child) {
-                        if (child.type === "Literal") {
-                            string = fixWhitespace(child);
-                            if (string.value !== "") {
-                                strings.push(string);
-                            }
-                        } else if (child.type === "JSXExpressionContainer" &&
-                            child.expression.type === "JSXEmptyExpression") {
-                            // ignore contents such as <$_>{/* foo */}</$_>
-                        } else {
-                            if (strings.length > 0) {
+                                // JSXExpressionContainer
+                                const value = attr.value;
+
+                                return t.objectProperty(
+                                    t.identifier(key.name), value.expression);
+                            });
+                            options = t.objectExpression(properties);
+                        }
+
+                        // The node.children array can contain the following
+                        // nodes:
+                        // - JSXText
+                        // - JSXExpressionContainer
+                        // - JSXElement
+                        //
+                        // Although it's valid jsx syntax for JSXElements to
+                        // appear within the i18n tags, they shouldn't because
+                        // it doesn't make sense to translate an element.
+                        //
+                        // This code handles multiple children within the an
+                        // i18n tag by appending them to the args array, but
+                        // only the first child is actually used by either $_()
+                        // or $i18nDoNotTranslate() because these methods only
+                        // take two args: options and str.
+                        const args = [options];
+                        let strings = [];
+                        node.children.forEach(function(child, i) {
+                            if (t.isJSXText(child)) {
+                                const string = fixWhitespace(child.value);
+                                if (string !== "") {
+                                    strings.push(t.stringLiteral(string));
+                                }
+                            } else if (t.isJSXExpressionContainer(child)) {
+                                if (t.isJSXEmptyExpression(child.expression)) {
+                                    // TODO(kevinb) don't worry about comments?
+                                    // This could clobber existing comments.
+                                    args[args.length - 1].trailingComments =
+                                        child.innerComments;
+                                } else {
+                                    if (strings.length > 0) {
+                                        args.push(concatStrings(strings));
+                                        strings = [];
+                                    }
+                                    // This copies the jsxtransformer plugin's
+                                    // behavior, but should probably strign
+                                    // concatenate it with the rest of the
+                                    // strings.
+                                    args.push(child.expression);
+                                }
+                            } else if (strings.length > 0) {
                                 args.push(concatStrings(strings));
                                 strings = [];
+                            } else {
+                                // TODO(kevinb) check if we hit this case for
+                                // any of the webapp code
+                                args.push(child);
                             }
-                            args.push(child);
+                        });
+
+                        // Take care of any remaining strings.
+                        if (strings.length > 0) {
+                            args.push(concatStrings(strings));
                         }
-                    });
-                    if (strings.length > 0) {
-                        args.push(concatStrings(strings));
+
+                        // create the function call to either $_() or
+                        // $i18nDoNotTranslate()
+                        const callee = t.identifier(tagName);
+                        const call = t.callExpression(callee, args);
+
+                        // set the source code location of the new node so that
+                        // it appears on the same line
+                        call.loc = node.loc;
+
+                        // https://github.com/thejameskyle/babel-handbook/blob/master/translations/en/plugin-handbook.md#replacing-a-node
+                        path.replaceWith(call);
                     }
-
-                    // create the function call to either $_() or
-                    // $i18nDoNotTranslate()
-                    const callee = t.identifier(tagName);
-                    const call = t.callExpression(callee, args);
-
-                    // set the source code location of the new node so that it
-                    // appears on the same line
-                    call.loc = node.loc;
-                    return call;
                 }
-            }
+            },
         },
-    });
+    };
 };

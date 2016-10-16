@@ -5,7 +5,7 @@ var b = $_(null, "hello, world!");
 
 
 
-var c = $_(null, 
+var c = $_(null,
 "hello, ", "world!");
 
 
