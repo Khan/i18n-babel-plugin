@@ -1,5 +1,5 @@
 node_js:
-  - "0.12"
+  - "6"
 before_script:
   - npm install
 script:
